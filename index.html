@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sheet Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ─── Root Variables ─── */
+    :root {
+      --bg: #f6f8fc;
+      --card: #ffffff;
+      --border: #e9edf4;
+      --text: #0b1a33;
+      --text-secondary: #5a6a7e;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-light: #dbeafe;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --success: #059669;
+      --success-light: #d1fae5;
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
+      --shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
+      --transition: 0.2s ease;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0e1629;
+      --card: #1a2338;
+      --border: #2a3650;
+      --text: #f0f4fe;
+      --text-secondary: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+      --primary-light: #1e3a5f;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+      --shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      transition: background var(--transition), color var(--transition);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    ::selection { background: var(--primary); color: #fff; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+    .text-secondary { color: var(--text-secondary); }
+    .border-subtle { border-color: var(--border); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      transition: background var(--transition), border var(--transition), box-shadow var(--transition);
+    }
+    .card-hover:hover { box-shadow: var(--shadow-hover); }
+
+    .toggle-track {
+      width: 44px; height: 24px;
+      background: var(--border);
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: background var(--transition);
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform var(--transition), background var(--transition);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    }
+    .toggle-track.dark { background: var(--primary); }
+    .toggle-track.dark::after { transform: translateX(20px); background: #0e1629; }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 10px 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.3px;
+    }
+    .badge-status.online { background: var(--success-light); color: var(--success); }
+    .badge-status.offline { background: #fee2e2; color: var(--danger); }
+    [data-theme="dark"] .badge-status.online { background: #064e3b; color: #6ee7b7; }
+    [data-theme="dark"] .badge-status.offline { background: #7f1d1d; color: #fca5a5; }
+
+    .highlight { background: #fcd34d; color: #0b1a33; padding: 0 2px; border-radius: 3px; font-weight: 500; }
+    [data-theme="dark"] .highlight { background: #92400e; color: #fef3c7; }
+
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.875rem; min-width: 480px; }
+    .table-wrap th {
+      text-align: left; padding: 10px 14px;
+      font-weight: 600; font-size: 0.7rem; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      position: sticky; top: 0; z-index: 2;
+    }
+    .table-wrap td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .table-wrap tr:last-child td { border-bottom: none; }
+    .table-wrap tr:hover td { background: rgba(37,99,235,0.03); }
+    [data-theme="dark"] .table-wrap tr:hover td { background: rgba(59,130,246,0.06); }
+
+    .grid-card-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      transition: background var(--transition), border var(--transition), box-shadow var(--transition);
+      box-shadow: var(--shadow);
+    }
+    .grid-card-item:hover { box-shadow: var(--shadow-hover); }
+
+    .modal-overlay {
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-panel {
+      animation: slideUp 0.25s ease;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.15);
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+    .toast-container {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      display: flex; flex-direction: column; gap: 8px;
+      max-width: 360px; width: 100%; pointer-events: none;
+    }
+    .toast-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      pointer-events: auto;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.875rem;
+      transform: translateX(120%);
+      opacity: 0;
+      transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), opacity 0.3s ease;
+    }
+    .toast-item.show { transform: translateX(0); opacity: 1; }
+    .toast-item.success { border-left: 4px solid var(--success); }
+    .toast-item.error { border-left: 4px solid var(--danger); }
+    .toast-item.warning { border-left: 4px solid #f59e0b; }
+    .toast-item.info { border-left: 4px solid var(--primary); }
+    .toast-icon { font-size: 1.2rem; flex-shrink: 0; }
+
+    .input-field {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 14px;
+      color: var(--text);
+      font-size: 0.875rem;
+      transition: border var(--transition), box-shadow var(--transition);
+      width: 100%;
+      outline: none;
+    }
+    .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    .input-field::placeholder { color: var(--text-secondary); opacity: 0.6; }
+    [data-theme="dark"] .input-field:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    select.input-field { appearance: auto; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: none; border-radius: 10px;
+      padding: 8px 18px;
+      font-size: 0.8rem; font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+      text-decoration: none; white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); box-shadow: 0 4px 16px rgba(37,99,235,0.25); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg); color: var(--text); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-hover); box-shadow: 0 4px 16px rgba(220,38,38,0.25); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: #047857; }
+    .btn-sm { padding: 4px 12px; font-size: 0.75rem; border-radius: 8px; }
+    .btn-xs { padding: 2px 10px; font-size: 0.7rem; border-radius: 6px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    .page-btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      min-width: 34px;
+      text-align: center;
+    }
+    .page-btn:hover:not(.active):not(:disabled) { background: var(--bg); }
+    .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .empty-icon { font-size: 3.5rem; opacity: 0.5; }
+
+    .cache-badge {
+      font-size: 0.62rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--primary-light);
+      color: var(--primary);
+      white-space: nowrap;
+    }
+    .cache-badge.loading { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+    @media (max-width: 640px) {
+      .container-padding { padding: 12px 14px; }
+      .btn { padding: 6px 14px; font-size: 0.75rem; }
+      .modal-panel { margin: 12px; max-width: 100%; }
+      .toast-container { right: 12px; bottom: 12px; max-width: calc(100% - 24px); }
+    }
+    @media (min-width: 641px) {
+      .container-padding { padding: 20px 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── TOAST ─── -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ─── CONFIRM DIALOG ─── -->
+  <div id="confirmOverlay" class="fixed inset-0 modal-overlay flex items-center justify-center z-50 hidden p-4">
+    <div class="modal-panel w-full max-w-sm p-6">
+      <h3 id="confirmTitle" class="text-lg font-bold">Konfirmasi</h3>
+      <p id="confirmMessage" class="text-sm text-secondary mt-1">Yakin ingin menghapus?</p>
+      <div class="flex justify-end gap-2 mt-5">
+        <button id="confirmCancel" class="btn btn-ghost">Batal</button>
+        <button id="confirmOk" class="btn btn-danger">Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── CRUD MODAL ─── -->
+  <div id="crudOverlay" class="fixed inset-0 modal-overlay flex items-center justify-center z-50 hidden p-4">
+    <div class="modal-panel w-full max-w-lg p-6">
+      <h3 id="modalTitle" class="text-xl font-bold">Record</h3>
+      <form id="modalForm" class="mt-4">
+        <div id="modalFields" class="space-y-3"></div>
+        <div class="flex justify-end gap-2 mt-5">
+          <button type="button" id="modalCancel" class="btn btn-ghost">Batal</button>
+          <button type="submit" id="modalSubmit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── MAIN ─── -->
+  <div class="max-w-7xl mx-auto container-padding">
+
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-3 py-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Sheet</span>
+          <span class="text-secondary font-light">Manager</span>
+        </h1>
+        <span class="text-[0.6rem] font-semibold bg-primary-light text-primary px-2 py-0.5 rounded-full">v3.1</span>
+        <span id="apiStatus" class="badge-status offline">● offline</span>
+        <span id="uniqueBadge" class="text-[0.6rem] bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full text-secondary"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="themeToggle" class="toggle-track" aria-label="Toggle theme"></button>
+        <button id="newBtn" class="btn btn-primary">+ Tambah</button>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="card p-3 flex flex-wrap items-center gap-3 mb-4">
+      <div class="flex items-center gap-1.5">
+        <label class="text-xs font-medium text-secondary">Row</label>
+        <input type="number" id="rowInput" class="input-field w-20" placeholder="#" min="1" />
+        <button id="goRowBtn" class="btn btn-primary btn-sm">Go</button>
+      </div>
+      <div class="flex-1 min-w-[160px] flex gap-2">
+        <input type="text" id="searchInput" class="input-field" placeholder="Cari..." />
+        <button id="searchBtn" class="btn btn-primary btn-sm">Cari</button>
+        <button id="clearBtn" class="btn btn-ghost btn-sm">Clear</button>
+      </div>
+      <div class="flex items-center gap-2 ml-auto">
+        <span id="dropdownBadge" class="cache-badge" title="Cache dropdown">⚡ 0/0 opsi</span>
+        <button id="cacheBtn" class="btn btn-ghost btn-sm" title="Muat ulang opsi dropdown dari server">⟳ Dropdown</button>
+        <button id="refreshBtn" class="btn btn-ghost btn-sm" title="Refresh data">⟳</button>
+        <span id="recordCount" class="text-sm text-secondary">0 records</span>
+      </div>
+    </div>
+
+    <!-- Table (Desktop) -->
+    <div class="hidden md:block card overflow-hidden">
+      <div class="table-wrap">
+        <table>
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Grid (Mobile) -->
+    <div class="md:hidden space-y-3" id="cardGrid"></div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="text-center py-12 hidden">
+      <div class="empty-icon">📭</div>
+      <p class="text-secondary mt-2">Tidak ada data</p>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex flex-wrap items-center justify-between gap-2 mt-4">
+      <div class="text-sm text-secondary">Halaman <span id="pageCurrent">1</span> dari <span id="pageTotal">1</span></div>
+      <div class="flex gap-1 flex-wrap" id="pagination"></div>
+    </div>
+
+    <!-- Log -->
+    <div class="mt-4 p-2 bg-gray-100 dark:bg-gray-400/60 rounded-lg text-xs font-mono text-secondary max-h-16 overflow-auto" id="log">Siap.</div>
+  </div>
+
+  <script>
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  KONFIGURASI
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const API_URL =
+      'https://script.google.com/macros/s/AKfycbxIfu95N3gRpwcZcDHLiG83dNhljVBMEwH_xs2npbECXeB3Ya-HNNeGMGTKL3OxCJlQMQ/exec';
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  DROPDOWN STORE (memory + localStorage, TTL 12 jam)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const DropdownStore = {
+      KEY: 'sheetManager.dropdownCache.v1',
+      TTL: 12 * 60 * 60 * 1000, // 12 jam
+      _mem: {},
+      _loaded: false,
+
+      load() {
+        if (this._loaded) return this._mem;
+        this._loaded = true;
+        try {
+          const raw = localStorage.getItem(this.KEY);
+          if (!raw) return this._mem;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== 'object' || !parsed.data) return this._mem;
+          if (parsed.savedAt && Date.now() - parsed.savedAt > this.TTL) {
+            localStorage.removeItem(this.KEY);
+            return this._mem;
+          }
+          Object.keys(parsed.data).forEach(k => {
+            if (Array.isArray(parsed.data[k])) this._mem[k] = parsed.data[k];
+          });
+        } catch (e) {
+          /* localStorage tidak tersedia / rusak — abaikan */
+        }
+        return this._mem;
+      },
+
+      persist() {
+        try {
+          localStorage.setItem(this.KEY, JSON.stringify({
+            savedAt: Date.now(),
+            data: this._mem
+          }));
+        } catch (e) {
+          /* quota penuh / private mode — abaikan, tetap pakai memory */
+        }
+      },
+
+      has(field) {
+        this.load();
+        return Object.prototype.hasOwnProperty.call(this._mem, field);
+      },
+      get(field) {
+        this.load();
+        return this.has(field) ? this._mem[field] : null;
+      },
+      set(field, options) {
+        this.load();
+        this._mem[field] = options;
+        this.persist();
+      },
+      setMany(entries) {
+        this.load();
+        entries.forEach(([f, o]) => { this._mem[f] = o; });
+        this.persist();
+      },
+      remove(fields) {
+        this.load();
+        fields.forEach(f => { delete this._mem[f]; });
+        this.persist();
+      },
+      clear() {
+        this._mem = {};
+        this._loaded = true;
+        try { localStorage.removeItem(this.KEY); } catch (e) {}
+      },
+      count() {
+        this.load();
+        return Object.keys(this._mem).length;
+      }
+    };
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  STATE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const State = {
+      config: null,
+      headers: [],               // kolom yang ditampilkan (tanpa 'row', 'rowNumber')
+      _fullHeaders: [],          // semua header dari server
+      data: [],
+      page: 1,
+      totalPages: 1,
+      totalRecords: 0,
+      search: '',
+      isLoading: false,
+      editingRow: null,
+      editingUniqueValue: null,
+      pendingDelete: null,
+      dropdownPromise: null,
+      dropdownLoading: false
+    };
+
+    const _inflightDropdown = new Set();
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  DOM REFS & HELPERS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const $ = (s, ctx = document) => ctx.querySelector(s);
+    const $$ = (s, ctx = document) => [...ctx.querySelectorAll(s)];
+
+    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
+    /** Escape untuk text node / innerHTML */
+    const esc = s => { const d = document.createElement('div'); d.textContent = String(s ?? ''); return d.innerHTML; };
+
+    /** Escape untuk nilai atribut HTML (value="...") */
+    const escAttr = s => String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    /** Ambil nomor baris asli dari objek data (properti 'row') */
+    function getRow(obj) {
+      if (!obj) return null;
+      const val = obj.row;
+      if (val === undefined || val === null) return null;
+      const num = Number(val);
+      return (isFinite(num) && num > 0) ? num : null;
+    }
+
+    /** Ambil nilai unik (dari kolom yang ditentukan di config) */
+    function getUniqueValue(obj) {
+      if (!State.config || !State._fullHeaders.length) return null;
+      const idx = State.config.UNIQUE_COLUMN_INDEX;
+      if (idx >= State._fullHeaders.length) return null;
+      const key = State._fullHeaders[idx];
+      const val = obj && obj[key] !== undefined ? obj[key] : null;
+      return (val !== null && val !== undefined && val !== '') ? String(val) : null;
+    }
+
+    function getUniqueHeader() {
+      if (!State.config || !State._fullHeaders) return null;
+      const idx = State.config.UNIQUE_COLUMN_INDEX;
+      return (idx < State._fullHeaders.length) ? State._fullHeaders[idx] : null;
+    }
+
+    /** Highlight pencarian — aman terhadap HTML & karakter regex */
+    function highlight(text, query) {
+      const str = String(text ?? '');
+      const q = String(query ?? '').trim();
+      if (!q) return esc(str);
+      const escQuery = esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      try {
+        return esc(str).replace(new RegExp(`(${escQuery})`, 'gi'), '<span class="highlight">$1</span>');
+      } catch (e) {
+        return esc(str);
+      }
+    }
+
+    function updateUniqueBadge() {
+      if (!State.config || !State._fullHeaders) return;
+      const idx = State.config.UNIQUE_COLUMN_INDEX;
+      const name = idx < State._fullHeaders.length ? State._fullHeaders[idx] : `Kolom ${idx + 1}`;
+      $('#uniqueBadge').textContent = `🔑 ${name}`;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TOAST
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function toast(msg, type = 'info', dur = 3000) {
+      const container = $('#toastContainer');
+      const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+      const el = document.createElement('div');
+      el.className = `toast-item ${type}`;
+      el.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span><span>${esc(msg)}</span>`;
+      container.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 350);
+      }, dur);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  CONFIRM
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function confirmDialog(title, msg, cb) {
+      $('#confirmTitle').textContent = title;
+      $('#confirmMessage').textContent = msg;
+      $('#confirmOverlay').classList.remove('hidden');
+      State.pendingDelete = cb;
+    }
+    function closeConfirm() {
+      $('#confirmOverlay').classList.add('hidden');
+      State.pendingDelete = null;
+    }
+    $('#confirmCancel').onclick = closeConfirm;
+    $('#confirmOk').onclick = () => {
+      const cb = State.pendingDelete;
+      closeConfirm();
+      if (typeof cb === 'function') cb();
+    };
+    $('#confirmOverlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeConfirm();
+    });
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOG & STATUS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function log(msg) { $('#log').textContent = msg; }
+    function setStatus(online) {
+      const el = $('#apiStatus');
+      el.textContent = online ? '● online' : '● offline';
+      el.className = 'badge-status ' + (online ? 'online' : 'offline');
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  DROPDOWN — FETCH / CACHE / PREFETCH
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function normalizeOptions(json) {
+      if (!json) return [];
+      const raw = Array.isArray(json.options) ? json.options
+                : Array.isArray(json) ? json
+                : [];
+      return raw.map(o => (o && typeof o === 'object') ? String(o.uraian ?? o.value ?? o.label ?? '') : String(o))
+                .filter(v => v !== '');
+    }
+
+    async function fetchDropdownFromServer(field) {
+      const res = await fetch(`${API_URL}?action=dropdown&field=${encodeURIComponent(field)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json && json.error) throw new Error(json.error);
+      return normalizeOptions(json);
+    }
+
+    /** Ambil dari cache; kalau tidak ada, fetch dari server lalu simpan. */
+    async function ensureDropdown(field) {
+      if (DropdownStore.has(field)) return DropdownStore.get(field);
+      if (_inflightDropdown.has(field)) {
+        // tunggu fetch yang sedang berjalan
+        while (_inflightDropdown.has(field)) {
+          await new Promise(r => setTimeout(r, 60));
+        }
+        if (DropdownStore.has(field)) return DropdownStore.get(field);
+      }
+      _inflightDropdown.add(field);
+      try {
+        const options = await fetchDropdownFromServer(field);
+        DropdownStore.set(field, options);   // [] = memang tidak ada dropdown, tetap dicache
+        return options;
+      } catch (err) {
+        return [];                            // kegagalan TIDAK dicache, agar bisa dicoba lagi
+      } finally {
+        _inflightDropdown.delete(field);
+      }
+    }
+
+    function updateDropdownBadge() {
+      const el = $('#dropdownBadge');
+      if (!el) return;
+      const headers = State.headers || [];
+      if (!headers.length) {
+        el.textContent = '⚡ 0/0 opsi';
+        el.classList.remove('loading');
+        return;
+      }
+      const cached = headers.filter(f => DropdownStore.has(f)).length;
+      el.textContent = State.dropdownLoading
+        ? `⚡ memuat… ${cached}/${headers.length}`
+        : `⚡ ${cached}/${headers.length} opsi`;
+      el.classList.toggle('loading', State.dropdownLoading);
+      el.title = `Cache dropdown: ${cached}/${headers.length} field tersimpan di localStorage (total ${DropdownStore.count()} entri)`;
+    }
+
+    /**
+     * Prefetch semua dropdown untuk header yang belum tercache.
+     * Dijalankan paralel & non-blocking; hasil disimpan sekali ke localStorage.
+     */
+    function prefetchDropdowns(headers, force = false) {
+      if (!Array.isArray(headers) || !headers.length) return Promise.resolve();
+
+      if (force) {
+        DropdownStore.remove(headers);
+        headers.forEach(f => _inflightDropdown.delete(f));
+      }
+
+      const missing = headers.filter(f => !DropdownStore.has(f) && !_inflightDropdown.has(f));
+      updateDropdownBadge();
+
+      if (!missing.length) {
+        log(`Dropdown cache siap (${headers.length} field).`);
+        return Promise.resolve();
+      }
+
+      State.dropdownLoading = true;
+      updateDropdownBadge();
+      log(`Mengambil opsi dropdown (${missing.length} field)...`);
+      missing.forEach(f => _inflightDropdown.add(f));
+
+      const p = Promise.all(missing.map(async f => {
+        try {
+          const options = await fetchDropdownFromServer(f);
+          return [f, options, true];
+        } catch (err) {
+          return [f, null, false];
+        } finally {
+          _inflightDropdown.delete(f);
+        }
+      })).then(results => {
+        const okEntries = results.filter(r => r[2]).map(r => [r[0], r[1]]);
+        if (okEntries.length) DropdownStore.setMany(okEntries);   // 1x tulis localStorage
+        State.dropdownLoading = false;
+        updateDropdownBadge();
+        const okCount = okEntries.length;
+        log(`Dropdown selesai: ${okCount}/${missing.length} field tersimpan di localStorage.`);
+        if (okCount) toast(`${okCount} opsi dropdown disimpan ke cache`, 'info', 2000);
+      });
+
+      State.dropdownPromise = p;
+      return p;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  FETCH CONFIG
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function fetchConfig() {
+      try {
+        const res = await fetch(`${API_URL}?action=config`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const cfg = await res.json();
+        if (typeof cfg.PAGE_SIZE !== 'number' || typeof cfg.UNIQUE_COLUMN_INDEX !== 'number') {
+          throw new Error('Config tidak lengkap');
+        }
+        State.config = cfg;
+        log(`Config: pageSize=${cfg.PAGE_SIZE}, uniqueCol=${cfg.UNIQUE_COLUMN_INDEX}`);
+        return true;
+      } catch (err) {
+        toast('Gagal memuat konfigurasi: ' + err.message, 'error');
+        log('Error config: ' + err.message);
+        setStatus(false);
+        return false;
+      }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  FETCH DATA
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function fetchData(page, search) {
+      if (State.isLoading) return;
+      if (!State.config) {
+        toast('Konfigurasi belum dimuat', 'warning');
+        return;
+      }
+      State.isLoading = true;
+      if (search !== undefined) State.search = search;
+
+      const q = State.search.trim();
+      const ps = State.config.PAGE_SIZE;
+      const p = page || State.page;
+      let url = `${API_URL}?action=read&page=${p}&pageSize=${ps}`;
+      if (q) url += `&search=${encodeURIComponent(q)}`;
+
+      log(`Memuat halaman ${p}...`);
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        setStatus(true);
+        if (json.error) throw new Error(json.error);
+
+        // Header lengkap (termasuk 'row', 'rowNumber') untuk mapping kolom unik
+        State._fullHeaders = json.headers || [];
+        const exclude = new Set(['row', 'rowNumber']);
+        State.headers = (json.headers || []).filter(h => !exclude.has(h));
+        updateUniqueBadge();
+
+        const data = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);
+        State.data = data;
+        State.page = json.page || 1;
+        State.totalPages = json.totalPages || 1;
+        State.totalRecords = json.totalRecords || data.length;
+
+        render();
+        renderPagination();
+        $('#recordCount').textContent = State.totalRecords + ' records';
+        log(`Halaman ${State.page}/${State.totalPages} · ${State.totalRecords} total${q ? ' (filtered)' : ''}`);
+
+        // ── Ambil & simpan opsi dropdown untuk semua kolom (non-blocking) ──
+        prefetchDropdowns(State.headers);
+      } catch (err) {
+        setStatus(false);
+        toast('Error: ' + err.message, 'error');
+        log('Error: ' + err.message);
+        State.data = [];
+        render();
+        renderPagination();
+      } finally {
+        State.isLoading = false;
+      }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  RENDER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function render() {
+      const { headers, data, search } = State;
+      const thead = $('#tableHead'), tbody = $('#tableBody'), grid = $('#cardGrid'), empty = $('#emptyState');
+      thead.innerHTML = ''; tbody.innerHTML = ''; grid.innerHTML = ''; empty.classList.add('hidden');
+
+      if (!headers.length || !data.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      const pageSize = (State.config && State.config.PAGE_SIZE) || 0;
+
+      // ── Table Head ──
+      const trh = document.createElement('tr');
+      ['#', ...headers, 'Aksi'].forEach(label => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+
+      // ── Rows ──
+      data.forEach((row, idx) => {
+        const rowNum = getRow(row);
+        const uniqueVal = getUniqueValue(row);
+        const hasUnique = uniqueVal !== null && uniqueVal !== undefined && uniqueVal !== '';
+        const hasRowNum = rowNum !== null;
+        const isValidRow = hasRowNum || hasUnique;
+
+        const displayRowNum = hasRowNum ? rowNum : (State.page - 1) * pageSize + idx + 1;
+
+        const openEdit = () => openModal('update', row, hasRowNum ? rowNum : null);
+        const askDelete = () => {
+          const label = hasRowNum ? `#${rowNum}` : `"${uniqueVal}"`;
+          confirmDialog('Hapus', `Hapus baris ${label}?`, () => handleDelete(hasRowNum ? rowNum : null, row));
+        };
+
+        // ── Table row ──
+        const tr = document.createElement('tr');
+        const tdNum = document.createElement('td');
+        tdNum.textContent = displayRowNum;
+        tdNum.style.textAlign = 'center';
+        tdNum.style.fontFamily = 'monospace';
+        tdNum.style.fontSize = '0.75rem';
+        tdNum.style.color = 'var(--text-secondary)';
+        tr.appendChild(tdNum);
+
+        headers.forEach(f => {
+          const td = document.createElement('td');
+          const val = row[f] !== undefined && row[f] !== null ? String(row[f]) : '';
+          td.innerHTML = val ? highlight(val, search) : '—';
+          tr.appendChild(td);
+        });
+
+        const tdAct = document.createElement('td');
+        const wrap = document.createElement('div');
+        wrap.className = 'flex gap-1';
+
+        if (isValidRow) {
+          const btnEdit = document.createElement('button');
+          btnEdit.textContent = '✎';
+          btnEdit.className = 'btn btn-primary btn-xs';
+          btnEdit.type = 'button';
+          btnEdit.title = 'Edit';
+          btnEdit.onclick = openEdit;
+
+          const btnDel = document.createElement('button');
+          btnDel.textContent = '✕';
+          btnDel.className = 'btn btn-danger btn-xs';
+          btnDel.type = 'button';
+          btnDel.title = 'Hapus';
+          btnDel.onclick = askDelete;
+
+          wrap.appendChild(btnEdit);
+          wrap.appendChild(btnDel);
+        } else {
+          const span = document.createElement('span');
+          span.textContent = '—';
+          span.className = 'text-secondary text-xs';
+          wrap.appendChild(span);
+        }
+
+        tdAct.appendChild(wrap);
+        tr.appendChild(tdAct);
+        tbody.appendChild(tr);
+
+        // ── Card (mobile) ──
+        const card = document.createElement('div');
+        card.className = 'grid-card-item';
+        let html = `<div class="text-xs font-mono text-secondary mb-2">#${esc(displayRowNum)}</div>`;
+        headers.forEach(f => {
+          const val = row[f] !== undefined && row[f] !== null ? String(row[f]) : '';
+          html += `<div class="text-xs font-medium text-secondary mt-2">${esc(cap(f))}</div>`;
+          html += `<div class="text-sm">${val ? highlight(val, search) : '—'}</div>`;
+        });
+        if (isValidRow) {
+          html += `
+            <div class="flex gap-2 mt-3 pt-3 border-t border-subtle">
+              <button type="button" class="btn btn-primary btn-sm" data-edit>✎ Edit</button>
+              <button type="button" class="btn btn-danger btn-sm" data-delete>✕ Hapus</button>
+            </div>`;
+        } else {
+          html += `<div class="mt-3 pt-3 border-t border-subtle text-secondary text-xs">— tidak dapat diedit</div>`;
+        }
+        card.innerHTML = html;
+        grid.appendChild(card);
+
+        if (isValidRow) {
+          const eb = card.querySelector('[data-edit]');
+          const db = card.querySelector('[data-delete]');
+          if (eb) eb.onclick = openEdit;
+          if (db) db.onclick = askDelete;
+        }
+      });
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PAGINATION
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function renderPagination() {
+      const cur = State.page, total = Math.max(1, State.totalPages || 1);
+      $('#pageCurrent').textContent = cur;
+      $('#pageTotal').textContent = total;
+      const container = $('#pagination');
+      container.innerHTML = '';
+
+      const addBtn = (label, p, disabled = false, active = false) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.className = `page-btn${active ? ' active' : ''}`;
+        b.disabled = disabled;
+        b.onclick = () => fetchData(p);
+        container.appendChild(b);
+        return b;
+      };
+
+      addBtn('‹ Prev', cur - 1, cur <= 1);
+
+      const maxShow = 5;
+      let start = Math.max(1, cur - Math.floor(maxShow / 2));
+      let end = Math.min(total, start + maxShow - 1);
+      if (end - start < maxShow - 1) start = Math.max(1, end - maxShow + 1);
+
+      if (start > 1) {
+        addBtn('1', 1);
+        if (start > 2) {
+          const e = document.createElement('span');
+          e.textContent = '…';
+          e.className = 'text-secondary px-1 text-sm';
+          container.appendChild(e);
+        }
+      }
+      for (let p = start; p <= end; p++) addBtn(String(p), p, false, p === cur);
+      if (end < total) {
+        if (end < total - 1) {
+          const e = document.createElement('span');
+          e.textContent = '…';
+          e.className = 'text-secondary px-1 text-sm';
+          container.appendChild(e);
+        }
+        addBtn(String(total), total);
+      }
+      addBtn('Next ›', cur + 1, cur >= total);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  MODAL CRUD
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function openModal(mode, rowData, rowNum) {
+      const isEdit = mode === 'update';
+
+      if (isEdit) {
+        State.editingRow = (rowNum !== null && typeof rowNum === 'number' && rowNum > 0) ? rowNum : null;
+        State.editingUniqueValue = getUniqueValue(rowData);
+        if (!State.editingRow && !State.editingUniqueValue) {
+          toast('Error: tidak ada identifikasi baris yang valid', 'error');
+          return;
+        }
+      } else {
+        State.editingRow = null;
+        State.editingUniqueValue = null;
+      }
+
+      const label = isEdit
+        ? (State.editingRow ? `#${State.editingRow}` : `"${State.editingUniqueValue}"`)
+        : 'Baru';
+      $('#modalTitle').textContent = isEdit ? `Edit Baris ${label}` : 'Tambah Record';
+
+      const fields = $('#modalFields');
+      const submitBtn = $('#modalSubmit');
+
+      const headers = State.headers;
+      if (!headers.length) {
+        fields.innerHTML = '<p class="text-secondary">Tidak ada field</p>';
+        $('#crudOverlay').classList.remove('hidden');
+        return;
+      }
+
+      // Tampilkan modal lebih dulu
+      $('#crudOverlay').classList.remove('hidden');
+
+      // ── Pastikan semua opsi dropdown tersedia (dari cache / localStorage) ──
+      const missing = headers.filter(f => !DropdownStore.has(f));
+      if (missing.length) {
+        fields.innerHTML = '<div class="text-secondary text-sm flex items-center gap-2">⏳ Memuat opsi dropdown…</div>';
+        submitBtn.disabled = true;
+        await Promise.all(missing.map(ensureDropdown));
+        submitBtn.disabled = false;
+        updateDropdownBadge();
+      }
+
+      // ── Bangun form (sinkron, dari cache) ──
+      let html = '';
+      for (const f of headers) {
+        const fieldLabel = cap(f);
+        const val = (isEdit && rowData && rowData[f] !== undefined && rowData[f] !== null) ? String(rowData[f]) : '';
+        const options = DropdownStore.get(f) || [];
+
+        if (options.length > 0) {
+          html += `<div class="space-y-1">
+              <label class="block text-sm font-medium text-secondary">${esc(fieldLabel)}</label>
+              <select name="${escAttr(f)}" class="input-field">
+                <option value="">-- Pilih --</option>
+                ${options.map(opt => {
+                  const o = String(opt);
+                  return `<option value="${escAttr(o)}" ${o === val ? 'selected' : ''}>${esc(o)}</option>`;
+                }).join('')}
+              </select>
+            </div>`;
+        } else {
+          html += `<div class="space-y-1">
+              <label class="block text-sm font-medium text-secondary">${esc(fieldLabel)}</label>
+              <input name="${escAttr(f)}" type="text" class="input-field" value="${escAttr(val)}" autocomplete="off" />
+            </div>`;
+        }
+      }
+      fields.innerHTML = html;
+
+      const first = fields.querySelector('input, select');
+      if (first) setTimeout(() => first.focus(), 100);
+    }
+
+    function closeModal() {
+      $('#crudOverlay').classList.add('hidden');
+      $('#modalSubmit').disabled = false;
+      State.editingRow = null;
+      State.editingUniqueValue = null;
+    }
+    $('#modalCancel').onclick = closeModal;
+    $('#crudOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    // ─── SUBMIT FORM ───
+    $('#modalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const isEdit = !!State.editingRow || !!State.editingUniqueValue;
+      const payload = { action: isEdit ? 'update' : 'create' };
+
+      const fields = $$('#modalFields select, #modalFields input');
+      const formData = {};
+      let hasData = false;
+
+      fields.forEach(el => {
+        const name = el.name;
+        const val = String(el.value ?? '').trim();
+        formData[name] = val;
+        if (val) hasData = true;
+      });
+
+      if (isEdit) {
+        if (State.editingRow && typeof State.editingRow === 'number' && State.editingRow > 0) {
+          payload.row = Number(State.editingRow);
+        } else if (State.editingUniqueValue && State.editingUniqueValue !== '') {
+          payload.uniqueValue = State.editingUniqueValue;
+        } else {
+          toast('Tidak ada identifikasi baris yang valid', 'error');
+          return;
+        }
+      }
+
+      Object.assign(payload, formData);
+
+      if (!isEdit && !hasData) {
+        toast('Isi minimal satu field', 'error');
+        return;
+      }
+
+      const submitBtn = $('#modalSubmit');
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // hindari preflight Apps Script
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json();
+        if (result.success) {
+          toast(isEdit ? 'Berhasil diperbarui' : 'Berhasil ditambahkan', 'success');
+          closeModal();
+          fetchData(State.page);
+        } else {
+          toast(result.error || 'Gagal', 'error');
+          submitBtn.disabled = false;
+        }
+      } catch (err) {
+        toast('Error: ' + err.message, 'error');
+        submitBtn.disabled = false;
+      }
+    });
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  DELETE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function handleDelete(rowNum, rowData) {
+      const payload = { action: 'delete' };
+
+      if (rowNum !== null && typeof rowNum === 'number' && rowNum > 0) {
+        payload.row = Number(rowNum);
+      } else {
+        const uniqueVal = getUniqueValue(rowData);
+        if (uniqueVal !== null && uniqueVal !== undefined && uniqueVal !== '') {
+          payload.uniqueValue = uniqueVal;
+        } else {
+          toast('Tidak ada identifikasi baris yang valid', 'error');
+          return;
+        }
+      }
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json();
+        if (result.success) {
+          const label = payload.row ? `#${payload.row}` : `"${payload.uniqueValue}"`;
+          toast(`Baris ${label} dihapus`, 'success');
+          if (Number($('#rowInput').value) === payload.row) $('#rowInput').value = '';
+          fetchData(State.page);
+        } else {
+          toast(result.error || 'Gagal hapus', 'error');
+        }
+      } catch (err) {
+        toast('Error: ' + err.message, 'error');
+      }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SEARCH & GO TO ROW
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function doSearch() { fetchData(1, $('#searchInput').value.trim()); }
+    $('#searchBtn').onclick = doSearch;
+    $('#searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+    });
+    $('#clearBtn').onclick = () => { $('#searchInput').value = ''; fetchData(1, ''); };
+
+    $('#goRowBtn').onclick = () => {
+      const val = parseInt($('#rowInput').value, 10);
+      if (!val || val < 1) { toast('Masukkan nomor baris', 'warning'); return; }
+      (async () => {
+        try {
+          const res = await fetch(`${API_URL}?action=read&row=${val}`);
+          if (!res.ok) throw new Error('Gagal');
+          const json = await res.json();
+          if (json.error) { toast(json.error, 'error'); return; }
+          let rowData = null;
+          if (Array.isArray(json.data)) rowData = json.data.find(r => getRow(r) === val) || json.data[0];
+          else if (json.data) rowData = json.data;
+          if (rowData) {
+            const rowNum = getRow(rowData) || val;
+            await openModal('update', rowData, rowNum);
+            fetchData(State.page);
+          } else {
+            toast(`Baris #${val} tidak ditemukan`, 'error');
+          }
+        } catch (err) { toast('Error: ' + err.message, 'error'); }
+      })();
+    };
+    $('#rowInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); $('#goRowBtn').click(); }
+    });
+
+    $('#refreshBtn').onclick = () => { fetchData(State.page); toast('Refresh', 'info', 1000); };
+    $('#newBtn').onclick = () => openModal('create');
+
+    // ── Refresh cache dropdown manual ──
+    $('#cacheBtn').onclick = async () => {
+      if (!State.headers.length) { toast('Header belum tersedia', 'warning'); return; }
+      const btn = $('#cacheBtn');
+      btn.disabled = true;
+      toast('Memperbarui cache dropdown…', 'info', 1500);
+      await prefetchDropdowns(State.headers, true);
+      btn.disabled = false;
+      toast('Cache dropdown diperbarui', 'success');
+    };
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  KEYBOARD SHORTCUTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!$('#crudOverlay').classList.contains('hidden')) closeModal();
+        if (!$('#confirmOverlay').classList.contains('hidden')) closeConfirm();
+      }
+    });
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  THEME
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const savedTheme = localStorage.getItem('theme') ||
+      (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+
+    function setTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('theme', t); } catch (e) {}
+      $('#themeToggle').classList.toggle('dark', t === 'dark');
+    }
+    setTheme(savedTheme);
+    $('#themeToggle').addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme');
+      setTheme(cur === 'dark' ? 'light' : 'dark');
+    });
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  INIT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    (async function init() {
+      // 1) Muat cache dropdown dari localStorage (instan, tanpa network)
+      DropdownStore.load();
+      updateDropdownBadge();
+
+      // 2) Ambil konfigurasi
+      const ok = await fetchConfig();
+      if (!ok) {
+        toast('Tidak dapat memuat konfigurasi', 'error');
+        log('Init gagal: config tidak tersedia');
+        return;
+      }
+
+      // 3) Ambil data (sekaligus dapat daftar header) → render tabel
+      await fetchData(1);
+
+      // 4) Prefetch dropdown untuk header yang belum ada di cache
+      //    (fetchData sudah memicunya; baris ini memastikan selesai sebelum dianggap "siap")
+      if (State.dropdownPromise) await State.dropdownPromise;
+
+      const total = State.headers.length;
+      const cached = State.headers.filter(f => DropdownStore.has(f)).length;
+      log(`Siap. Dropdown cache: ${cached}/${total} field (localStorage: ${DropdownStore.count()} entri).`);
+    })();
+  </script>
+</body>
+</html>
